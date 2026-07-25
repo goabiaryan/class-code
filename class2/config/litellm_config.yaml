@@ -1,0 +1,10 @@
+model_list:
+  - model_name: naive-local
+    litellm_params:
+      model: openai/naive-local
+      api_base: os.environ/NAIVE_SERVER_URL
+      api_key: local-dev-key
+
+general_settings:
+  master_key: sk-class2-demo
+  set_verbose: false

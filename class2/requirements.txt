@@ -1,0 +1,16 @@
+# Class 2 codelab — pinned for reproducible Docker builds
+fastapi>=0.110,<1
+uvicorn[standard]>=0.27,<1
+transformers>=4.38,<5
+torch>=2.1,<3
+accelerate>=0.27,<1
+httpx>=0.27,<1
+openai>=1.12,<2
+relayserve==1.1
+litellm>=1.30,<2
+pandas>=2.0,<3
+tabulate>=0.9,<1
+jupyterlab>=4.0,<5
+ipywidgets>=8.1,<9
+PyYAML>=6,<7
+modal>=0.64,<1

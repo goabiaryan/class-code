@@ -1,0 +1,24 @@
+# Instructor-only material (not in student repo clone).
+# Layout:
+#   extra/class1/  — Class 1 speaker notes, homework spec
+#   extra/class2/  — Class 2 instructor hub, speaker notes, deliverables rubric
+/extra/
+
+# Local env and secrets — never commit tokens
+.env
+.env.local
+.env.*.local
+class2/.env
+class2/secrets/*.env
+!class2/secrets/*.env.example
+class2/.modal_url
+class2/.modal_urls/
+
+# Downloaded models (use scripts/download_gguf.py)
+class2/models/*.gguf
+
+# Python / tooling
+class2/.venv/
+__pycache__/
+*.pyc
+.DS_Store

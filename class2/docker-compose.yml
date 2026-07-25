@@ -1,0 +1,214 @@
+# Class 2 codelab — Docker Compose
+#
+# Recommended (Mac users → Modal GPU sandbox, see MODAL.md):
+#   docker compose build
+#   docker compose up naive-server          # Parts 0–3 (GPU)
+#   docker compose --profile intro up llama-engine-cpu   # Warm-up notebook (CPU / Mac)
+#   docker compose --profile intro-gpu up llama-engine-gpu
+#   docker compose --profile relay up       # Parts 4–5 (RelayServe + llama.cpp)
+#   docker compose --profile lab up jupyter # Notebook UI (token: class2)
+#
+# Mac local smoke test only (no GPU — not for Part 3–4 submission):
+#   docker compose --profile cpu up              # Part 2: naive-server + Open WebUI
+#   docker compose --profile cpu up naive-server-cpu   # API only (no UI)
+
+services:
+  naive-server:
+    build: .
+    profiles: ["gpu", "default"]
+    command: ["bash", "scripts/entrypoint.sh", "naive"]
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_ID: ${MODEL_ID:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}
+      NAIVE_SERVER_PORT: 8000
+      TORCH_DTYPE: auto
+    volumes:
+      - hf-cache:/cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  naive-server-cpu:
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+    profiles: ["cpu"]
+    command: ["bash", "scripts/entrypoint.sh", "naive"]
+    ports:
+      - "8000:8000"
+    environment:
+      MODEL_ID: ${MODEL_ID:-TinyLlama/TinyLlama-1.1B-Chat-v1.0}
+      NAIVE_SERVER_PORT: 8000
+      FORCE_CPU: "1"
+      TORCH_DTYPE: float32
+    volumes:
+      - hf-cache:/cache/huggingface
+
+  # Part 2 — browser chat UI → naive-server OpenAI API (Settings → External Tools for MCP)
+  open-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    profiles: ["cpu"]
+    depends_on:
+      - naive-server-cpu
+    ports:
+      - "3000:8080"
+    environment:
+      OPENAI_API_BASE_URL: http://naive-server-cpu:8000/v1
+      OPENAI_API_KEY: class2
+      ENABLE_OPENAI_API: "true"
+      ENABLE_OLLAMA_API: "false"
+      WEBUI_AUTH: "false"
+      WEBUI_NAME: Class 2 Naive Server
+    volumes:
+      - open-webui-data:/app/backend/data
+
+  # Intro notebook — direct llama.cpp engine (no gateway), port 8081
+  llama-engine-cpu:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    profiles: ["intro"]
+    command: >
+      --host 0.0.0.0
+      --port 8081
+      -m /models/model.gguf
+      -c 2048
+      -ngl 0
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8081:8081"
+
+  llama-engine-gpu:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    profiles: ["intro-gpu"]
+    command: >
+      --host 0.0.0.0
+      --port 8081
+      -m /models/model.gguf
+      -c 4096
+      -ngl 999
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8081:8081"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  llama-backend-1:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    profiles: ["relay"]
+    command: >
+      --host 0.0.0.0
+      --port 8081
+      -m /models/model.gguf
+      -c 4096
+      -ngl 999
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8081:8081"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  llama-backend-2:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    profiles: ["relay"]
+    command: >
+      --host 0.0.0.0
+      --port 8082
+      -m /models/model.gguf
+      -c 4096
+      -ngl 999
+    volumes:
+      - ./models:/models:ro
+    ports:
+      - "8082:8082"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  relayserve:
+    build: .
+    profiles: ["relay"]
+    depends_on:
+      - llama-backend-1
+      - llama-backend-2
+    command: ["bash", "scripts/entrypoint.sh", "relay"]
+    ports:
+      - "8080:8080"
+    environment:
+      RELAYSERVE_PORT: 8080
+      RELAYSERVE_BACKENDS: http://llama-backend-1:8081,http://llama-backend-2:8082
+      RELAYSERVE_MODEL_ID: relay-gguf
+      RELAYSERVE_BATCH_SIZE: 4
+      RELAYSERVE_BATCH_WAIT_MS: 10
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  litellm:
+    build: .
+    profiles: ["litellm"]
+    depends_on:
+      - naive-server
+    command: ["bash", "scripts/entrypoint.sh", "litellm"]
+    ports:
+      - "4000:4000"
+    environment:
+      LITELLM_PORT: 4000
+      NAIVE_SERVER_URL: http://naive-server:8000/v1
+
+  jupyter:
+    build: .
+    profiles: ["lab"]
+    command: ["bash", "scripts/entrypoint.sh", "jupyter"]
+    ports:
+      - "8888:8888"
+    environment:
+      JUPYTER_PORT: 8888
+    volumes:
+      - .:/workspace/class2
+      - hf-cache:/cache/huggingface
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+
+  load-client:
+    build: .
+    profiles: ["tools"]
+    network_mode: host
+    entrypoint: ["python", "-m", "lib.load_test"]
+    command: ["--sweep"]
+    environment:
+      TARGET_URL: ${TARGET_URL:-http://127.0.0.1:8000/v1}
+      CONCURRENCY: ${CONCURRENCY:-8}
+
+volumes:
+  hf-cache:
+  open-webui-data:

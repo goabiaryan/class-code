@@ -1,0 +1,2 @@
+# Place TinyLlama GGUF here as `model.gguf` for RelayServe llama.cpp backends.
+# Run: python scripts/download_gguf.py
