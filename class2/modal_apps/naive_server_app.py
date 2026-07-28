@@ -28,6 +28,7 @@ image = (
             "TRANSFORMERS_CACHE": "/cache/huggingface",
             "TORCH_DTYPE": "auto",
             "NAIVE_SERVER_HOST": "0.0.0.0",
+            "ENGINE": "transformers"
         }
     )
     .add_local_python_source("naive_server")

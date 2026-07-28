@@ -11,7 +11,7 @@ from lib.client_utils import make_client, print_timing, timed_chat_completion
 
 def main() -> None:
     base_url = os.environ.get("LITELLM_BASE_URL", "http://127.0.0.1:4000/v1")
-    client = make_client(base_url)
+    client = make_client(base_url, 'Bearer sk-class2-demo')
     messages = [{"role": "user", "content": "In one sentence: what does an inference gateway do?"}]
 
     print("Part 6 — LiteLLM gateway (optional)")
