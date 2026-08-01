@@ -16,7 +16,7 @@ python inference_101.py
 curl -s http://127.0.0.1:8081/health | jq
 docker compose --profile cpu up
 curl -s http://127.0.0.1:8000/healthz | jq
-docker compose --profile cpu down
+docker compose --profile cpu down 
 
 # MODAL ENV
 eval "$(bash scripts/modal.sh env naive-server)"
@@ -30,6 +30,25 @@ curl -s "$MODAL_BASE_URL/healthz" | jq
 curl -s "$MODAL_BASE_URL/v1/chat/completions" \
   -H 'Content-Type: application/json' \
   -d '{"model":"TinyLlama/TinyLlama-1.1B-Chat-v1.0","messages":[{"role":"user","content":"Hi"}],"max_tokens":8}' | jq '.metrics'
+
+
+eval "$(bash scripts/modal.sh env llama-engine)"
+curl -s "$ENGINE_BASE_URL/v1/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"TinyLlama/TinyLlama-1.1B-Chat-v1.0","messages":[{"role":"user","content":"Hi"}],"max_tokens":8}' | jq '.timings'
+
+eval "$(bash scripts/modal.sh env relay-serve)"
+curl -s "$RELAY_BASE_URL/v1/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -d '{"model":"TinyLlama/TinyLlama-1.1B-Chat-v1.0","messages":[{"role":"user","content":"Hi"}],"max_tokens":8}' 
+
+
+eval "$(bash scripts/modal.sh env litellm)"
+curl -s "$LITELLM_BASE_URL/chat/completions" \
+  -H 'Content-Type: application/json' \
+  -H 'x-litellm-api-key: Bearer sk-class2-demo' \
+  -d '{"model":"naive-local","messages":[{"role":"user","content":"Hi"}],"max_tokens":8}' 
+
 
 # PART 1
 eval "$(bash scripts/modal.sh env naive-server)"

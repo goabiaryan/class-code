@@ -130,18 +130,26 @@ class ModelBundle:
         self.model: Optional[Any] = None
 
     def load(self) -> None:
-        dtype = None if TORCH_DTYPE == "auto" else getattr(torch, TORCH_DTYPE, None)
+        if TORCH_DTYPE == "auto":
+            load_kwargs = {"dtype": "auto"}
+        else:
+            dtype = getattr(torch, TORCH_DTYPE, None)
+            if dtype is None:
+                raise ValueError(f"TORCH_DTYPE inválido o no soportado por torch: {TORCH_DTYPE}")
+            load_kwargs = {"dtype": dtype}
+
         print(f"[naive-server] Loading {self.model_id} on {self.device} dtype={TORCH_DTYPE}")
         self.tokenizer = AutoTokenizer.from_pretrained(self.model_id)
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token
-        if dtype is None:
-            load_kwargs: Dict[str, Any] = {"dtype": "auto"}
-        else:
-            load_kwargs = {"dtype": dtype}
-        self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **load_kwargs)
-        self.model.to(self.device)
-        self.model.eval()
+            
+        try:
+            self.model = AutoModelForCausalLM.from_pretrained(self.model_id, **load_kwargs)
+            self.model.to(self.device)
+            self.model.eval()
+        except Exception as e:
+            raise RuntimeError(f"Error cargando el modelo con torch_dtype={TORCH_DTYPE} en dispositivo {self.device}: {e}")
+            
         print(f"[naive-server] Ready. GPU mem: {gpu_memory_snapshot()}")
 
 

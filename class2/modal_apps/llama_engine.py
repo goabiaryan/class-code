@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import modal
+import subprocess
 
 APP_NAME = "llama-engine"
 GGUF_URL = (
@@ -21,6 +22,7 @@ image = (
         {
             "GGUF_URL": GGUF_URL,
             "GGUF_PATH": "/cache/models/model.gguf",
+            "PATH": "$PATH:/app",
         }
     )
 )
@@ -33,14 +35,15 @@ image = (
     scaledown_window=10 * 60,
     max_containers=1,
     volumes={"/cache/models": gguf_cache},
+    
 )
-@modal.web_server(8080, startup_timeout=600)
+@modal.web_server(8080, startup_timeout=60)
 def serve():
     import os
     import shutil
     import urllib.request
     from pathlib import Path
-
+    
     gguf_path = Path(os.environ.get("GGUF_PATH", "/cache/models/model.gguf"))
     if not gguf_path.exists():
         gguf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -54,9 +57,7 @@ def serve():
         raise RuntimeError("llama-server not found in PATH inside llama.cpp image")
 
     print(f"Starting {llama_server} on :8080", flush=True)
-    os.execvp(
-        llama_server,
-        [
+    subprocess.Popen(    [
             llama_server,
             "--host",
             "0.0.0.0",
@@ -70,3 +71,5 @@ def serve():
             "999",
         ],
     )
+    
+    

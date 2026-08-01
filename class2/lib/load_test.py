@@ -34,6 +34,10 @@ async def _one_request(
     max_tokens: int,
     sem: asyncio.Semaphore,
 ) -> Dict[str, Any]:
+    import re
+    # Expresión regular para eliminar códigos de escape ANSI (colores y estilos)
+    ansi_escape = re.compile(r'\x1b\[[0-9;]*m')
+
     async with sem:
         t0 = time.perf_counter()
         ttft_ms = 0.0
@@ -48,6 +52,8 @@ async def _one_request(
                     "stream": True,
                     "temperature": 0.7,
                 },
+                headers= {} if 'litellm' not in base_url else {'x-litellm-api-key': 'Bearer sk-class2-demo'}
+                ,
                 timeout=120,
             ) as resp:
                 if resp.status_code >= 400:
@@ -55,25 +61,44 @@ async def _one_request(
                     return {
                         "ok": False,
                         "status": resp.status_code,
-                        "error": body.decode(errors="replace")[:200],
+                        "error": ansi_escape.sub('', body.decode(errors="replace"))[:200],
                         "ttft_ms": 0,
                         "total_ms": (time.perf_counter() - t0) * 1000,
                         "tokens": 0,
                     }
+                
                 tokens = 0
                 first = True
+                full_content = ''
+                
                 async for line in resp.aiter_lines():
-                    if not line or not line.startswith("data:"):
+                    if not line:
                         continue
-                    payload = line.removeprefix("data:").strip()
-                    if payload == "[DONE]":
-                        break
+                    
+                    # Limpiar códigos ANSI de la línea entrante
+                    clean_line = ansi_escape.sub('', line)
+
+                    # Si es una línea SSE estándar
+                    if clean_line.startswith("data:"):
+                        payload = clean_line.removeprefix("data:").strip()
+                        if payload == "[DONE]":
+                            break
+                        # Si trae contenido válido o JSON de chunks, puedes procesarlo aquí.
+                        # Asumimos incremento de tokens por cada chunk recibido si no se parsea JSON complejo
+                    else:
+                        # Caso para líneas que no empiezan con "data:" (texto plano o logs del servidor)
+                        full_content += clean_line
+
+                    # Registrar TTFT al recibir el primer contenido útil
                     if first:
                         ttft_ms = (time.perf_counter() - t0) * 1000
                         first = False
+                    
                     tokens += 1
+
                 total_ms = (time.perf_counter() - t0) * 1000
                 tps = tokens / max(total_ms / 1000, 1e-6)
+      
                 return {
                     "ok": True,
                     "status": resp.status_code,

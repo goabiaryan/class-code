@@ -38,7 +38,7 @@ app_module() {
     naive-server) echo "modal_apps/naive_server_app.py" ;;
     llama-engine) echo "modal_apps/llama_engine.py" ;;
     relay-serve)  echo "modal_apps/relay_serve.py" ;;
-    litellm)      echo "modal_apps/litellm.py" ;;
+    litellm)      echo "modal_apps/litellm_app.py" ;;
     *) echo "Unknown app: $1" >&2; exit 1 ;;
   esac
 }

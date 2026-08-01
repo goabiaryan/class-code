@@ -12,7 +12,7 @@ NAIVE_SERVER_URL = os.environ.get("NAIVE_SERVER_URL", "")
 
 image = (
     modal.Image.debian_slim(python_version="3.11")
-    .pip_install("litellm>=1.30,<2")
+    .pip_install("litellm[proxy]>=1.30,<2","prisma>=0.11.0,<1.0")
     .add_local_file(
         local_path="config/litellm_config.yaml",
         remote_path="/root/litellm_config.yaml",
@@ -21,7 +21,7 @@ image = (
     .env(
         {
             "NAIVE_SERVER_URL": NAIVE_SERVER_URL,
-            "LITELLM_PORT": "4000",
+            "PORT": "4000",
         }
     )
 )
@@ -39,7 +39,7 @@ def serve():
 
     subprocess.Popen(
         [
-            "litellm",
+            "/usr/local/bin/litellm",
             "--config",
             "/root/litellm_config.yaml",
             "--port",
@@ -48,6 +48,6 @@ def serve():
             "0.0.0.0",
         ],
         env=os.environ.copy(),
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
+        #stdout=subprocess.DEVNULL,
+        #stderr=subprocess.DEVNULL,
     )
